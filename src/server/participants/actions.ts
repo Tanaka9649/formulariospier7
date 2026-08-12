@@ -2,6 +2,7 @@
 
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
+import { participantUpdateSchema, attendanceStatusEnum, type ParticipantUpdateInput } from "@/lib/validation/participant";
 
 type SubmitResult =
   | { success: true }
@@ -132,4 +133,56 @@ export async function submitRegistration(
   }
 
   return result;
+}
+
+export async function updateParticipant(eventId: string, participantId: string, input: ParticipantUpdateInput) {
+  const parsed = participantUpdateSchema.parse(input);
+
+  const fields = await db.formField.findMany({ where: { eventId } });
+  const fieldByKey = new Map(fields.map((f) => [f.fieldKey, f]));
+
+  await db.$transaction(async (tx) => {
+    await tx.participant.updateMany({
+      where: { id: participantId, eventId },
+      data: {
+        registrationStatus: parsed.registrationStatus,
+        attendanceStatus: parsed.attendanceStatus,
+      },
+    });
+
+    for (const [fieldKey, value] of Object.entries(parsed.answers)) {
+      const field = fieldByKey.get(fieldKey);
+      if (!field) continue;
+      await tx.participantAnswer.upsert({
+        where: { participantId_formFieldId: { participantId, formFieldId: field.id } },
+        update: { value },
+        create: { participantId, formFieldId: field.id, value },
+      });
+    }
+  });
+
+  revalidatePath(`/events/${eventId}/participants`);
+}
+
+export async function bulkMarkAttendance(
+  eventId: string,
+  participantIds: string[],
+  attendanceStatus: "PENDING" | "PRESENT" | "ABSENT"
+) {
+  const status = attendanceStatusEnum.parse(attendanceStatus);
+  await db.participant.updateMany({
+    where: { id: { in: participantIds }, eventId },
+    data: { attendanceStatus: status },
+  });
+  revalidatePath(`/events/${eventId}/participants`);
+  revalidatePath(`/events/${eventId}/overview`);
+}
+
+export async function deleteParticipant(eventId: string, participantId: string) {
+  await db.participant.updateMany({
+    where: { id: participantId, eventId },
+    data: { deletedAt: new Date() },
+  });
+  revalidatePath(`/events/${eventId}/participants`);
+  revalidatePath(`/events/${eventId}/overview`);
 }

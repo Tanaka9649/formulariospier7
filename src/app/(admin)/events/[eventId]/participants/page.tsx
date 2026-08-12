@@ -1,7 +1,37 @@
-export default function Placeholder() {
+import { getParticipantsPage } from "@/server/participants/queries";
+import { ParticipantsTable } from "@/components/admin/ParticipantsTable";
+
+export default async function ParticipantsPage({
+  params,
+  searchParams,
+}: {
+  params: { eventId: string };
+  searchParams: { [key: string]: string | undefined };
+}) {
+  const page = Number(searchParams.page ?? "1") || 1;
+
+  const { rows, fields, total, pageSize } = await getParticipantsPage(
+    params.eventId,
+    {
+      search: searchParams.search,
+      registrationStatus: (searchParams.registrationStatus as any) ?? "ALL",
+      attendanceStatus: (searchParams.attendanceStatus as any) ?? "ALL",
+      sortDir: (searchParams.sortDir as "asc" | "desc") ?? "desc",
+    },
+    page
+  );
+
   return (
-    <div className="text-sm text-slate-500 border border-dashed border-slate-300 rounded-lg p-10 text-center">
-      Esta área será implementada em uma próxima etapa.
+    <div>
+      <h2 className="text-lg font-semibold mb-6">Participantes</h2>
+      <ParticipantsTable
+        eventId={params.eventId}
+        fields={fields}
+        rows={rows.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() }))}
+        total={total}
+        page={page}
+        pageSize={pageSize}
+      />
     </div>
   );
 }
