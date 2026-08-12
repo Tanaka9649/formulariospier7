@@ -64,9 +64,29 @@ model Event {
   eventVisits    EventVisit[]
   assets         Asset[]
   certificateConfig CertificateConfig?
+  ticketTypes    TicketType[]
 
   @@index([status])
   @@map("events")
+}
+
+model TicketType {
+  id           String   @id @default(uuid())
+  eventId      String   @map("event_id")
+  name         String
+  description  String?
+  quota        Int?     // null = sem limite próprio, só o limite geral do evento
+  isActive     Boolean  @default(true) @map("is_active")
+  displayOrder Int      @default(0) @map("display_order")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  event        Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  participants Participant[]
+
+  @@index([eventId])
+  @@map("ticket_types")
 }
 
 // ---------------------------------------------------------------------------
@@ -266,6 +286,7 @@ model Participant {
   id                 String             @id @default(uuid())
   eventId            String             @map("event_id")
   referralLinkId     String?            @map("referral_link_id")
+  ticketTypeId       String?            @map("ticket_type_id")
   registrationStatus RegistrationStatus @default(REGISTERED) @map("registration_status")
   attendanceStatus   AttendanceStatus   @default(PENDING) @map("attendance_status")
 
@@ -275,11 +296,13 @@ model Participant {
 
   event        Event               @relation(fields: [eventId], references: [id], onDelete: Cascade)
   referralLink ReferralLink?       @relation(fields: [referralLinkId], references: [id], onDelete: SetNull)
+  ticketType   TicketType?         @relation(fields: [ticketTypeId], references: [id], onDelete: SetNull)
   answers      ParticipantAnswer[]
   consents     ParticipantConsent[]
 
   @@index([eventId])
   @@index([referralLinkId])
+  @@index([ticketTypeId])
   @@map("participants")
 }
 
