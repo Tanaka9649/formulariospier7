@@ -22,7 +22,8 @@ export async function submitRegistration(
   eventId: string,
   answers: Record<string, string>,
   consentAnswers: Record<string, boolean>,
-  referralLinkId?: string | null
+  referralLinkId?: string | null,
+  ticketTypeId?: string | null
 ): Promise<SubmitResult> {
   const event = await db.event.findUnique({ where: { id: eventId, deletedAt: null } });
   if (!event) return { success: false, error: "Evento não encontrado." };
@@ -97,6 +98,21 @@ export async function submitRegistration(
     validReferralLinkId = link?.id ?? null;
   }
 
+  // Tipo de ingresso: se o evento tem algum tipo ativo configurado, a escolha é obrigatória.
+  // A checagem de cota (que pode sofrer condição de corrida) fica dentro da transação abaixo.
+  const activeTicketTypes = await db.ticketType.findMany({ where: { eventId, isActive: true } });
+  let selectedTicketType: (typeof activeTicketTypes)[number] | null = null;
+  if (activeTicketTypes.length > 0) {
+    selectedTicketType = activeTicketTypes.find((t) => t.id === ticketTypeId) ?? null;
+    if (!selectedTicketType) {
+      return {
+        success: false,
+        error: "Selecione um tipo de ingresso.",
+        fieldErrors: { ticketType: "Selecione uma opção." },
+      };
+    }
+  }
+
   const result = await db.$transaction(async (tx) => {
     if (!isWaitlist && event.maxParticipants) {
       const currentCount = await tx.participant.count({
@@ -111,10 +127,24 @@ export async function submitRegistration(
       }
     }
 
+    if (!isWaitlist && selectedTicketType?.quota !== null && selectedTicketType?.quota !== undefined) {
+      const takenForType = await tx.participant.count({
+        where: {
+          ticketTypeId: selectedTicketType.id,
+          deletedAt: null,
+          registrationStatus: { in: ["REGISTERED", "CONFIRMED"] },
+        },
+      });
+      if (takenForType >= selectedTicketType.quota) {
+        return { success: false as const, error: "Este tipo de ingresso esgotou. Escolha outra opção." };
+      }
+    }
+
     const participant = await tx.participant.create({
       data: {
         eventId,
         referralLinkId: validReferralLinkId,
+        ticketTypeId: selectedTicketType?.id ?? null,
         registrationStatus: isWaitlist ? "WAITLISTED" : "REGISTERED",
       },
     });

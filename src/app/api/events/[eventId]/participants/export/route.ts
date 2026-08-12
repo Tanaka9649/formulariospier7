@@ -27,7 +27,7 @@ export async function GET(request: NextRequest, { params }: { params: { eventId:
     attendanceStatus: (searchParams.get("attendanceStatus") as any) ?? "ALL",
   });
 
-  const headers = [...fields.map((f) => f.publicLabel), "Data de inscrição", "Origem", "Status", "Presença"];
+  const headers = [...fields.map((f) => f.publicLabel), "Data de inscrição", "Origem", "Ingresso", "Status", "Presença"];
   const lines = [headers.map(csvEscape).join(",")];
 
   for (const p of participants) {
@@ -36,6 +36,7 @@ export async function GET(request: NextRequest, { params }: { params: { eventId:
       ...fields.map((f) => csvEscape(answerByFieldId.get(f.id) ?? "")),
       csvEscape(p.createdAt.toLocaleString("pt-BR")),
       csvEscape(p.referralLink?.internalName ?? ""),
+      csvEscape(p.ticketType?.name ?? ""),
       csvEscape(registrationLabels[p.registrationStatus] ?? p.registrationStatus),
       csvEscape(attendanceLabels[p.attendanceStatus] ?? p.attendanceStatus),
     ];

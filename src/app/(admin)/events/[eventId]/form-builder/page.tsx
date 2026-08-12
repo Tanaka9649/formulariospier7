@@ -1,13 +1,25 @@
 import { getFormBuilderData } from "@/server/forms/actions";
+import { getTicketTypesWithStats } from "@/server/ticketTypes/actions";
 import { FormFieldRow } from "@/components/admin/FormFieldRow";
 import { ConsentRow } from "@/components/admin/ConsentRow";
 import { FormConfigEditor } from "@/components/admin/FormConfigEditor";
+import { TicketTypesTable } from "@/components/admin/TicketTypesTable";
 
 export default async function FormBuilderPage({ params }: { params: { eventId: string } }) {
   const { formConfig, fields, consents } = await getFormBuilderData(params.eventId);
+  const ticketTypes = await getTicketTypesWithStats(params.eventId);
 
   return (
     <div className="flex flex-col gap-10">
+      <section>
+        <h2 className="text-sm font-medium text-slate-700 mb-1">Tipos de ingresso</h2>
+        <p className="text-xs text-slate-500 mb-4">
+          Opcional. Se criar pelo menos um tipo, a escolha vira obrigatória no formulário público.
+          Cada tipo pode ter sua própria cota, independente do limite geral do evento.
+        </p>
+        <TicketTypesTable eventId={params.eventId} ticketTypes={ticketTypes} />
+      </section>
+
       <section>
         <h2 className="text-sm font-medium text-slate-700 mb-1">Campos do formulário</h2>
         <p className="text-xs text-slate-500 mb-4">

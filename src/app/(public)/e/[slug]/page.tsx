@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
 import type { Metadata } from "next";
 import { PublicForm } from "@/components/public/PublicForm";
+import { getActiveTicketTypes } from "@/server/ticketTypes/actions";
 
 const closedMessages: Record<string, string> = {
   DRAFT: "As inscrições ainda não foram abertas para este evento.",
@@ -56,7 +57,7 @@ export default async function PublicEventPage({
     : null;
   const referralLinkId = referralLink?.isActive ? referralLink.id : null;
 
-  const [formConfig, fields, consents, branding] = await Promise.all([
+  const [formConfig, fields, consents, branding, ticketTypes] = await Promise.all([
     db.formConfig.findUnique({ where: { eventId: event.id } }),
     db.formField.findMany({
       where: { eventId: event.id, status: { in: ["OPTIONAL", "REQUIRED"] } },
@@ -64,6 +65,7 @@ export default async function PublicEventPage({
     }),
     db.consent.findMany({ where: { eventId: event.id }, orderBy: { displayOrder: "asc" } }),
     db.branding.findUnique({ where: { eventId: event.id } }),
+    getActiveTicketTypes(event.id),
   ]);
 
   return (
@@ -76,6 +78,7 @@ export default async function PublicEventPage({
       branding={branding}
       referralLinkId={referralLinkId}
       waitlistMode={isWaitlistMode}
+      ticketTypes={ticketTypes}
     />
   );
 }

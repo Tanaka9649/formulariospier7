@@ -127,6 +127,7 @@ export async function duplicateEvent(eventId: string) {
       consents: true,
       branding: true,
       certificateConfig: true,
+      ticketTypes: true,
     },
   });
   if (!source) throw new Error("Evento não encontrado.");
@@ -224,6 +225,19 @@ export async function duplicateEvent(eventId: string) {
           bodyTemplate: source.certificateConfig.bodyTemplate,
           signatureName: source.certificateConfig.signatureName,
           signatureRole: source.certificateConfig.signatureRole,
+        },
+      });
+    }
+
+    for (const ticketType of source.ticketTypes) {
+      await tx.ticketType.create({
+        data: {
+          eventId: event.id,
+          name: ticketType.name,
+          description: ticketType.description,
+          quota: ticketType.quota,
+          isActive: ticketType.isActive,
+          displayOrder: ticketType.displayOrder,
         },
       });
     }

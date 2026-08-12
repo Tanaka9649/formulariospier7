@@ -65,6 +65,7 @@ export function PublicForm({
   branding,
   referralLinkId,
   waitlistMode = false,
+  ticketTypes = [],
 }: {
   eventId: string;
   publicName: string;
@@ -74,8 +75,10 @@ export function PublicForm({
   branding?: BrandingData;
   referralLinkId?: string | null;
   waitlistMode?: boolean;
+  ticketTypes?: { id: string; name: string; description: string | null; quota: number | null; soldOut: boolean }[];
 }) {
   const [values, setValues] = useState<Record<string, string>>({});
+  const [ticketTypeId, setTicketTypeId] = useState<string | null>(null);
   const [consentValues, setConsentValues] = useState<Record<string, boolean>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [generalError, setGeneralError] = useState<string | null>(null);
@@ -102,7 +105,7 @@ export function PublicForm({
     setGeneralError(null);
     setErrors({});
 
-    const result = await submitRegistration(eventId, values, consentValues, referralLinkId ?? null);
+    const result = await submitRegistration(eventId, values, consentValues, referralLinkId ?? null, ticketTypeId);
 
     if (!result.success) {
       setGeneralError(result.error);
@@ -196,6 +199,37 @@ export function PublicForm({
 
           {generalError && (
             <div className="bg-red-50 text-red-700 text-sm px-3 py-2 rounded-md mb-4">{generalError}</div>
+          )}
+
+          {ticketTypes.length > 0 && (
+            <div className="flex flex-col gap-2 mb-6">
+              <label className="text-sm font-medium text-slate-700">
+                Tipo de ingresso <span className="text-red-500">*</span>
+              </label>
+              {ticketTypes.map((tt) => (
+                <label
+                  key={tt.id}
+                  className={`flex items-start gap-2 border rounded-md px-3 py-2 text-sm cursor-pointer ${
+                    tt.soldOut ? "opacity-50 cursor-not-allowed" : "border-slate-200 hover:border-slate-400"
+                  } ${ticketTypeId === tt.id ? "border-slate-900 ring-1 ring-slate-900" : ""}`}
+                >
+                  <input
+                    type="radio"
+                    name="ticketType"
+                    className="mt-0.5"
+                    disabled={tt.soldOut}
+                    checked={ticketTypeId === tt.id}
+                    onChange={() => setTicketTypeId(tt.id)}
+                  />
+                  <span>
+                    <span className="font-medium">{tt.name}</span>
+                    {tt.soldOut && <span className="text-red-500 text-xs ml-2">Esgotado</span>}
+                    {tt.description && <p className="text-xs text-slate-500">{tt.description}</p>}
+                  </span>
+                </label>
+              ))}
+              {errors.ticketType && <span className="text-xs text-red-600">{errors.ticketType}</span>}
+            </div>
           )}
 
           <div className="flex flex-col gap-4 mb-6">

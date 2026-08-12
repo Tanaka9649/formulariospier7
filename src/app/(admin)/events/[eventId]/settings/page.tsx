@@ -53,8 +53,9 @@ export default async function EventSettingsPage({ params }: { params: { eventId:
       <div>
         <h2 className="text-lg font-semibold mb-1">Duplicar evento</h2>
         <p className="text-sm text-slate-500 mb-4">
-          Cria um novo evento em rascunho com o mesmo formulário, textos, cores, background, áudio e
-          configuração de certificado. Participantes, links de divulgação e inscrições não são copiados.
+          Cria um novo evento em rascunho com o mesmo formulário, tipos de ingresso, textos, cores,
+          background, áudio e configuração de certificado. Participantes, links de divulgação e
+          inscrições não são copiados.
         </p>
         <DuplicateEventButton eventId={params.eventId} />
       </div>
