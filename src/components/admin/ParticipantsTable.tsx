@@ -41,6 +41,7 @@ export function ParticipantsTable({
   total,
   page,
   pageSize,
+  certificateEnabled,
 }: {
   eventId: string;
   fields: Field[];
@@ -48,6 +49,7 @@ export function ParticipantsTable({
   total: number;
   page: number;
   pageSize: number;
+  certificateEnabled?: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -215,6 +217,15 @@ export function ParticipantsTable({
                   </span>
                 </td>
                 <td className="p-3 whitespace-nowrap text-right">
+                  {certificateEnabled && row.attendanceStatus === "PRESENT" && (
+                    <a
+                      href={`/api/events/${eventId}/participants/${row.id}/certificate`}
+                      target="_blank"
+                      className="text-slate-500 hover:text-slate-900 text-xs mr-3"
+                    >
+                      Certificado
+                    </a>
+                  )}
                   <button
                     className="text-slate-500 hover:text-slate-900 text-xs mr-3"
                     onClick={() => setEditingRow(row)}
