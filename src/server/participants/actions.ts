@@ -18,7 +18,8 @@ function normalize(value: string) {
 export async function submitRegistration(
   eventId: string,
   answers: Record<string, string>,
-  consentAnswers: Record<string, boolean>
+  consentAnswers: Record<string, boolean>,
+  referralLinkId?: string | null
 ): Promise<SubmitResult> {
   const event = await db.event.findUnique({ where: { id: eventId, deletedAt: null } });
   if (!event) return { success: false, error: "Evento não encontrado." };
@@ -83,6 +84,15 @@ export async function submitRegistration(
     }
   }
 
+  // Nunca confia no referralLinkId vindo do client: revalida que pertence a este evento e está ativo.
+  let validReferralLinkId: string | null = null;
+  if (referralLinkId) {
+    const link = await db.referralLink.findFirst({
+      where: { id: referralLinkId, eventId, isActive: true },
+    });
+    validReferralLinkId = link?.id ?? null;
+  }
+
   const result = await db.$transaction(async (tx) => {
     if (event.maxParticipants) {
       const currentCount = await tx.participant.count({
@@ -94,7 +104,7 @@ export async function submitRegistration(
     }
 
     const participant = await tx.participant.create({
-      data: { eventId },
+      data: { eventId, referralLinkId: validReferralLinkId },
     });
 
     for (const field of fields) {
@@ -130,6 +140,7 @@ export async function submitRegistration(
   if (result.success) {
     revalidatePath(`/events/${eventId}/participants`);
     revalidatePath(`/events/${eventId}/overview`);
+    revalidatePath(`/events/${eventId}/links`);
   }
 
   return result;

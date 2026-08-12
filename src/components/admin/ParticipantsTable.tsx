@@ -13,6 +13,7 @@ type Row = {
   createdAt: string;
   registrationStatus: "REGISTERED" | "CONFIRMED" | "CANCELLED";
   attendanceStatus: "PENDING" | "PRESENT" | "ABSENT";
+  origin: string | null;
   answers: Record<string, string>;
 };
 
@@ -184,6 +185,7 @@ export function ParticipantsTable({
                 </th>
               ))}
               <th className="p-3 whitespace-nowrap">Inscrição</th>
+              <th className="p-3 whitespace-nowrap">Origem</th>
               <th className="p-3 whitespace-nowrap">Status</th>
               <th className="p-3 whitespace-nowrap">Presença</th>
               <th className="p-3"></th>
@@ -203,6 +205,7 @@ export function ParticipantsTable({
                 <td className="p-3 whitespace-nowrap text-slate-500">
                   {new Date(row.createdAt).toLocaleDateString("pt-BR")}
                 </td>
+                <td className="p-3 whitespace-nowrap text-slate-500">{row.origin ?? "—"}</td>
                 <td className="p-3 whitespace-nowrap">{registrationLabels[row.registrationStatus]}</td>
                 <td className="p-3 whitespace-nowrap">
                   <span className={`text-xs px-2 py-1 rounded-full font-medium ${attendanceColors[row.attendanceStatus]}`}>
@@ -224,7 +227,7 @@ export function ParticipantsTable({
             ))}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={fields.length + 5} className="p-6 text-center text-slate-400 text-sm">
+                <td colSpan={fields.length + 6} className="p-6 text-center text-slate-400 text-sm">
                   Nenhum participante encontrado.
                 </td>
               </tr>

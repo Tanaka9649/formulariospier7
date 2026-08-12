@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { notFound } from "next/navigation";
+import { cookies } from "next/headers";
 import { PublicForm } from "@/components/public/PublicForm";
 
 const closedMessages: Record<string, string> = {
@@ -9,7 +10,13 @@ const closedMessages: Record<string, string> = {
   FINISHED: "Este evento já foi finalizado.",
 };
 
-export default async function PublicEventPage({ params }: { params: { slug: string } }) {
+export default async function PublicEventPage({
+  params,
+  searchParams,
+}: {
+  params: { slug: string };
+  searchParams: { ref?: string };
+}) {
   const event = await db.event.findUnique({ where: { slug: params.slug, deletedAt: null } });
   if (!event) notFound();
 
@@ -25,6 +32,14 @@ export default async function PublicEventPage({ params }: { params: { slug: stri
       </div>
     );
   }
+
+  const refCode = searchParams.ref ?? cookies().get(`pier7_ref_${params.slug}`)?.value;
+  const referralLink = refCode
+    ? await db.referralLink.findUnique({
+        where: { eventId_refCode: { eventId: event.id, refCode } },
+      })
+    : null;
+  const referralLinkId = referralLink?.isActive ? referralLink.id : null;
 
   const [formConfig, fields, consents] = await Promise.all([
     db.formConfig.findUnique({ where: { eventId: event.id } }),
@@ -42,6 +57,7 @@ export default async function PublicEventPage({ params }: { params: { slug: stri
       fields={fields}
       consents={consents}
       formConfig={formConfig}
+      referralLinkId={referralLinkId}
     />
   );
 }

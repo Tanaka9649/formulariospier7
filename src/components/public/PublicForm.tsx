@@ -42,12 +42,14 @@ export function PublicForm({
   fields,
   consents,
   formConfig,
+  referralLinkId,
 }: {
   eventId: string;
   publicName: string;
   fields: Field[];
   consents: ConsentItem[];
   formConfig: FormConfigData | null;
+  referralLinkId?: string | null;
 }) {
   const [values, setValues] = useState<Record<string, string>>({});
   const [consentValues, setConsentValues] = useState<Record<string, boolean>>({});
@@ -77,7 +79,7 @@ export function PublicForm({
     setGeneralError(null);
     setErrors({});
 
-    const result = await submitRegistration(eventId, values, consentValues);
+    const result = await submitRegistration(eventId, values, consentValues, referralLinkId ?? null);
 
     if (!result.success) {
       setGeneralError(result.error);

@@ -43,7 +43,7 @@ export async function getParticipantsPage(
     db.participant.count({ where }),
     db.participant.findMany({
       where,
-      include: { answers: true },
+      include: { answers: true, referralLink: { select: { internalName: true } } },
       orderBy: { createdAt: filters.sortDir === "asc" ? "asc" : "desc" },
       skip: (page - 1) * pageSize,
       take: pageSize,
@@ -57,6 +57,7 @@ export async function getParticipantsPage(
       createdAt: p.createdAt,
       registrationStatus: p.registrationStatus,
       attendanceStatus: p.attendanceStatus,
+      origin: p.referralLink?.internalName ?? null,
       answers: fields.reduce<Record<string, string>>((acc, f) => {
         const answer = p.answers.find((a) => a.formFieldId === f.id);
         acc[f.fieldKey] = answer?.value ?? "";
@@ -73,7 +74,7 @@ export async function getAllParticipantsForExport(eventId: string, filters: Part
   const [participants, fields] = await Promise.all([
     db.participant.findMany({
       where,
-      include: { answers: true },
+      include: { answers: true, referralLink: { select: { internalName: true } } },
       orderBy: { createdAt: filters.sortDir === "asc" ? "asc" : "desc" },
     }),
     getActiveFields(eventId),
