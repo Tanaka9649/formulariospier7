@@ -1,18 +1,47 @@
 import { db } from "@/lib/db";
 import { notFound } from "next/navigation";
+import { PublicForm } from "@/components/public/PublicForm";
+
+const closedMessages: Record<string, string> = {
+  DRAFT: "As inscrições ainda não foram abertas para este evento.",
+  REGISTRATION_CLOSED: "As inscrições para este evento foram encerradas.",
+  FULL: "As vagas para este evento se esgotaram.",
+  FINISHED: "Este evento já foi finalizado.",
+};
 
 export default async function PublicEventPage({ params }: { params: { slug: string } }) {
   const event = await db.event.findUnique({ where: { slug: params.slug, deletedAt: null } });
   if (!event) notFound();
 
-  return (
-    <div className="min-h-screen flex items-center justify-center p-6">
-      <div className="text-center">
-        <h1 className="text-xl font-semibold">{event.publicName}</h1>
-        <p className="text-sm text-slate-500 mt-2">
-          Formulário de inscrição em construção — chega na Etapa 3.
-        </p>
+  if (event.status !== "REGISTRATION_OPEN") {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6">
+        <div className="text-center max-w-md">
+          <h1 className="text-xl font-semibold">{event.publicName}</h1>
+          <p className="text-sm text-slate-500 mt-2">
+            {closedMessages[event.status] ?? "As inscrições não estão disponíveis no momento."}
+          </p>
+        </div>
       </div>
-    </div>
+    );
+  }
+
+  const [formConfig, fields, consents] = await Promise.all([
+    db.formConfig.findUnique({ where: { eventId: event.id } }),
+    db.formField.findMany({
+      where: { eventId: event.id, status: { in: ["OPTIONAL", "REQUIRED"] } },
+      orderBy: { displayOrder: "asc" },
+    }),
+    db.consent.findMany({ where: { eventId: event.id }, orderBy: { displayOrder: "asc" } }),
+  ]);
+
+  return (
+    <PublicForm
+      eventId={event.id}
+      publicName={event.publicName}
+      fields={fields}
+      consents={consents}
+      formConfig={formConfig}
+    />
   );
 }
