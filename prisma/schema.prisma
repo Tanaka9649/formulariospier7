@@ -149,6 +149,7 @@ model Branding {
   logoUrl        String? @map("logo_url")
   faviconUrl     String? @map("favicon_url")
   backgroundUrl  String? @map("background_url")
+  backgroundEnabled Boolean @default(true) @map("background_enabled")
   backgroundBlur Int?    @default(0) @map("background_blur")
   backgroundOverlay Float? @default(0) @map("background_overlay")
 
