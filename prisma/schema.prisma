@@ -63,6 +63,7 @@ model Event {
   participants   Participant[]
   eventVisits    EventVisit[]
   assets         Asset[]
+  certificateConfig CertificateConfig?
 
   @@index([status])
   @@map("events")
@@ -184,6 +185,23 @@ model Asset {
 
   @@index([eventId])
   @@map("assets")
+}
+
+model CertificateConfig {
+  id             String  @id @default(uuid())
+  eventId        String  @unique @map("event_id")
+  enabled        Boolean @default(false)
+  title          String  @default("Certificado de Participação")
+  bodyTemplate   String  @default("Certificamos que {{nome}} participou do evento {{evento}}, realizado em {{data}}.") @map("body_template")
+  signatureName  String? @map("signature_name")
+  signatureRole  String? @map("signature_role")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@map("certificate_configs")
 }
 
 // ---------------------------------------------------------------------------
