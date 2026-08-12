@@ -1,16 +1,31 @@
 import { getFormBuilderData } from "@/server/forms/actions";
 import { getTicketTypesWithStats } from "@/server/ticketTypes/actions";
+import { listFormTemplates } from "@/server/formTemplates/actions";
+import { db } from "@/lib/db";
 import { FormFieldRow } from "@/components/admin/FormFieldRow";
 import { ConsentRow } from "@/components/admin/ConsentRow";
 import { FormConfigEditor } from "@/components/admin/FormConfigEditor";
 import { TicketTypesTable } from "@/components/admin/TicketTypesTable";
+import { TemplatesSection } from "@/components/admin/TemplatesSection";
 
 export default async function FormBuilderPage({ params }: { params: { eventId: string } }) {
   const { formConfig, fields, consents } = await getFormBuilderData(params.eventId);
   const ticketTypes = await getTicketTypesWithStats(params.eventId);
+  const templates = await listFormTemplates();
+  const participantCount = await db.participant.count({
+    where: { eventId: params.eventId, deletedAt: null },
+  });
 
   return (
     <div className="flex flex-col gap-10">
+      <section>
+        <h2 className="text-sm font-medium text-slate-700 mb-1">Templates de formulário</h2>
+        <p className="text-xs text-slate-500 mb-4">
+          Reaproveite a configuração de campos e textos entre eventos, sem duplicar o evento inteiro.
+        </p>
+        <TemplatesSection eventId={params.eventId} templates={templates} hasParticipants={participantCount > 0} />
+      </section>
+
       <section>
         <h2 className="text-sm font-medium text-slate-700 mb-1">Tipos de ingresso</h2>
         <p className="text-xs text-slate-500 mb-4">
