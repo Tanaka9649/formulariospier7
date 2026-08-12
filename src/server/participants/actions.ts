@@ -3,6 +3,9 @@
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { participantUpdateSchema, attendanceStatusEnum, type ParticipantUpdateInput } from "@/lib/validation/participant";
+import { sendEmail } from "@/lib/email";
+import { generateTicketQrPng } from "@/lib/qrCodeImage";
+import { confirmationEmailHtml } from "@/lib/emailTemplates/confirmation";
 
 type SubmitResult =
   | { success: true; participantId: string }
@@ -141,6 +144,33 @@ export async function submitRegistration(
     revalidatePath(`/events/${eventId}/participants`);
     revalidatePath(`/events/${eventId}/overview`);
     revalidatePath(`/events/${eventId}/links`);
+
+    const recipientEmail = cleanAnswers["email"];
+    if (recipientEmail) {
+      try {
+        const formConfig = await db.formConfig.findUnique({ where: { eventId } });
+        const qrPng = await generateTicketQrPng(`${eventId}.${result.participantId}`);
+        const html = confirmationEmailHtml({
+          brandName: event.brandName || "Pier7",
+          eventPublicName: event.publicName,
+          eventDate: event.date ? event.date.toLocaleDateString("pt-BR") : null,
+          eventLocation: event.location,
+          confirmationTitle: formConfig?.confirmationTitle || "Inscrição realizada com sucesso!",
+          confirmationMessage: formConfig?.confirmationMessage || "Nos vemos no evento.",
+        });
+
+        await sendEmail({
+          to: recipientEmail,
+          subject: `Inscrição confirmada — ${event.publicName}`,
+          html,
+          attachments: [{ filename: "ingresso.png", content: qrPng, content_id: "ticket-qr" }],
+        });
+      } catch (error) {
+        // Falha de e-mail é registrada mas nunca reverte ou reporta erro pro participante —
+        // a inscrição já foi gravada com sucesso no banco antes deste bloco rodar.
+        console.error("[submitRegistration] Falha ao enviar e-mail de confirmação:", error);
+      }
+    }
   }
 
   return result;
