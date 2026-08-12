@@ -1,5 +1,7 @@
 import { db } from "@/lib/db";
 import { notFound } from "next/navigation";
+import { getOriginBreakdown, getRegistrationsByDay } from "@/server/analytics/queries";
+import { BarList } from "@/components/admin/BarList";
 
 const statusLabels: Record<string, string> = {
   DRAFT: "Rascunho",
@@ -31,7 +33,15 @@ export default async function EventOverviewPage({ params }: { params: { eventId:
 
   if (!event) notFound();
 
-  const registrations = event.participants.filter((p) => p.registrationStatus !== "CANCELLED");
+  const [originBreakdown, registrationsByDay] = await Promise.all([
+    getOriginBreakdown(params.eventId),
+    getRegistrationsByDay(params.eventId),
+  ]);
+
+  const registrations = event.participants.filter(
+    (p) => p.registrationStatus === "REGISTERED" || p.registrationStatus === "CONFIRMED"
+  );
+  const waitlisted = event.participants.filter((p) => p.registrationStatus === "WAITLISTED").length;
   const totalRegistered = registrations.length;
   const confirmed = registrations.filter((p) => p.registrationStatus === "CONFIRMED").length;
   const present = registrations.filter((p) => p.attendanceStatus === "PRESENT").length;
@@ -61,6 +71,7 @@ export default async function EventOverviewPage({ params }: { params: { eventId:
         <StatCard label="Presentes" value={present} />
         <StatCard label="Ausentes" value={absent} />
         <StatCard label="Taxa de comparecimento" value={`${attendanceRate}%`} />
+        <StatCard label="Em lista de espera" value={waitlisted} />
       </div>
 
       {event.summary && (
@@ -69,6 +80,36 @@ export default async function EventOverviewPage({ params }: { params: { eventId:
           <p className="text-sm text-slate-600">{event.summary}</p>
         </div>
       )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
+        <div>
+          <h2 className="text-sm font-medium text-slate-700 mb-3">Inscrições por origem</h2>
+          <div className="border border-slate-200 rounded-lg bg-white p-4">
+            <BarList items={originBreakdown.map((o) => ({ label: o.name, value: o.count }))} />
+          </div>
+        </div>
+
+        <div>
+          <h2 className="text-sm font-medium text-slate-700 mb-3">Inscrições por dia</h2>
+          <div className="border border-slate-200 rounded-lg bg-white p-4">
+            {registrationsByDay.length === 0 ? (
+              <p className="text-sm text-slate-400">Sem dados ainda.</p>
+            ) : (
+              <BarList
+                items={registrationsByDay.slice(-14).map((d) => ({
+                  label: new Date(d.day).toLocaleDateString("pt-BR"),
+                  value: d.count,
+                }))}
+              />
+            )}
+            {registrationsByDay.length > 0 && (
+              <p className="text-xs text-slate-400 mt-3">
+                Total acumulado: {registrationsByDay[registrationsByDay.length - 1].cumulative} inscrições
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

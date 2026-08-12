@@ -11,7 +11,7 @@ type Field = { id: string; fieldKey: string; publicLabel: string };
 type Row = {
   id: string;
   createdAt: string;
-  registrationStatus: "REGISTERED" | "CONFIRMED" | "CANCELLED";
+  registrationStatus: "REGISTERED" | "CONFIRMED" | "CANCELLED" | "WAITLISTED";
   attendanceStatus: "PENDING" | "PRESENT" | "ABSENT";
   origin: string | null;
   answers: Record<string, string>;
@@ -21,6 +21,7 @@ const registrationLabels: Record<string, string> = {
   REGISTERED: "Inscrito",
   CONFIRMED: "Confirmado",
   CANCELLED: "Cancelado",
+  WAITLISTED: "Em espera",
 };
 const attendanceLabels: Record<string, string> = {
   PENDING: "Pendente",
@@ -126,6 +127,7 @@ export function ParticipantsTable({
           <option value="ALL">Todos os status</option>
           <option value="REGISTERED">Inscrito</option>
           <option value="CONFIRMED">Confirmado</option>
+          <option value="WAITLISTED">Em espera</option>
           <option value="CANCELLED">Cancelado</option>
         </select>
 

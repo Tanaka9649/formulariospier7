@@ -5,6 +5,7 @@ export function confirmationEmailHtml({
   eventLocation,
   confirmationTitle,
   confirmationMessage,
+  showTicket = true,
 }: {
   brandName: string;
   eventPublicName: string;
@@ -12,6 +13,7 @@ export function confirmationEmailHtml({
   eventLocation: string | null;
   confirmationTitle: string;
   confirmationMessage: string;
+  showTicket?: boolean;
 }): string {
   return `
   <div style="font-family: -apple-system, Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 32px 24px; color: #0f172a;">
@@ -42,10 +44,13 @@ export function confirmationEmailHtml({
       }
     </table>
 
-    <p style="font-size: 13px; color: #475569; margin-bottom: 8px;">Seu ingresso (QR Code de entrada):</p>
+    ${
+      showTicket
+        ? `<p style="font-size: 13px; color: #475569; margin-bottom: 8px;">Seu ingresso (QR Code de entrada):</p>
     <img src="cid:ticket-qr" alt="QR Code de entrada" width="200" height="200" style="display: block; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px;" />
-
-    <p style="font-size: 12px; color: #94a3b8; margin-top: 32px;">Apresente este QR Code na entrada do evento.</p>
+    <p style="font-size: 12px; color: #94a3b8; margin-top: 32px;">Apresente este QR Code na entrada do evento.</p>`
+        : ""
+    }
   </div>
   `;
 }

@@ -8,7 +8,7 @@ import { generateTicketQrPng } from "@/lib/qrCodeImage";
 import { confirmationEmailHtml } from "@/lib/emailTemplates/confirmation";
 
 type SubmitResult =
-  | { success: true; participantId: string }
+  | { success: true; participantId: string; isWaitlist: boolean }
   | { success: false; error: string; fieldErrors?: Record<string, string> };
 
 // Campo usado como identificador de duplicidade, em ordem de preferência.
@@ -27,9 +27,10 @@ export async function submitRegistration(
   const event = await db.event.findUnique({ where: { id: eventId, deletedAt: null } });
   if (!event) return { success: false, error: "Evento não encontrado." };
 
-  if (event.status !== "REGISTRATION_OPEN") {
+  if (event.status !== "REGISTRATION_OPEN" && event.status !== "FULL") {
     return { success: false, error: "As inscrições não estão abertas para este evento." };
   }
+  const isWaitlist = event.status === "FULL";
 
   const [fields, consents] = await Promise.all([
     db.formField.findMany({ where: { eventId, status: { in: ["OPTIONAL", "REQUIRED"] } } }),
@@ -97,9 +98,13 @@ export async function submitRegistration(
   }
 
   const result = await db.$transaction(async (tx) => {
-    if (event.maxParticipants) {
+    if (!isWaitlist && event.maxParticipants) {
       const currentCount = await tx.participant.count({
-        where: { eventId, deletedAt: null, registrationStatus: { not: "CANCELLED" } },
+        where: {
+          eventId,
+          deletedAt: null,
+          registrationStatus: { in: ["REGISTERED", "CONFIRMED"] },
+        },
       });
       if (currentCount >= event.maxParticipants) {
         return { success: false as const, error: "As vagas para este evento se esgotaram." };
@@ -107,7 +112,11 @@ export async function submitRegistration(
     }
 
     const participant = await tx.participant.create({
-      data: { eventId, referralLinkId: validReferralLinkId },
+      data: {
+        eventId,
+        referralLinkId: validReferralLinkId,
+        registrationStatus: isWaitlist ? "WAITLISTED" : "REGISTERED",
+      },
     });
 
     for (const field of fields) {
@@ -128,16 +137,20 @@ export async function submitRegistration(
       });
     }
 
-    if (event.maxParticipants) {
+    if (!isWaitlist && event.maxParticipants) {
       const newCount = await tx.participant.count({
-        where: { eventId, deletedAt: null, registrationStatus: { not: "CANCELLED" } },
+        where: {
+          eventId,
+          deletedAt: null,
+          registrationStatus: { in: ["REGISTERED", "CONFIRMED"] },
+        },
       });
       if (newCount >= event.maxParticipants && event.status === "REGISTRATION_OPEN") {
         await tx.event.update({ where: { id: eventId }, data: { status: "FULL" } });
       }
     }
 
-    return { success: true as const, participantId: participant.id };
+    return { success: true as const, participantId: participant.id, isWaitlist };
   });
 
   if (result.success) {
@@ -149,22 +162,41 @@ export async function submitRegistration(
     if (recipientEmail) {
       try {
         const formConfig = await db.formConfig.findUnique({ where: { eventId } });
-        const qrPng = await generateTicketQrPng(`${eventId}.${result.participantId}`);
-        const html = confirmationEmailHtml({
-          brandName: event.brandName || "Pier7",
-          eventPublicName: event.publicName,
-          eventDate: event.date ? event.date.toLocaleDateString("pt-BR") : null,
-          eventLocation: event.location,
-          confirmationTitle: formConfig?.confirmationTitle || "Inscrição realizada com sucesso!",
-          confirmationMessage: formConfig?.confirmationMessage || "Nos vemos no evento.",
-        });
 
-        await sendEmail({
-          to: recipientEmail,
-          subject: `Inscrição confirmada — ${event.publicName}`,
-          html,
-          attachments: [{ filename: "ingresso.png", content: qrPng, content_id: "ticket-qr" }],
-        });
+        if (result.isWaitlist) {
+          const html = confirmationEmailHtml({
+            brandName: event.brandName || "Pier7",
+            eventPublicName: event.publicName,
+            eventDate: event.date ? event.date.toLocaleDateString("pt-BR") : null,
+            eventLocation: event.location,
+            confirmationTitle: "Você entrou na lista de espera",
+            confirmationMessage:
+              "As vagas deste evento estão esgotadas no momento. Avisaremos por e-mail se surgir uma vaga.",
+            showTicket: false,
+          });
+          await sendEmail({
+            to: recipientEmail,
+            subject: `Lista de espera — ${event.publicName}`,
+            html,
+          });
+        } else {
+          const qrPng = await generateTicketQrPng(`${eventId}.${result.participantId}`);
+          const html = confirmationEmailHtml({
+            brandName: event.brandName || "Pier7",
+            eventPublicName: event.publicName,
+            eventDate: event.date ? event.date.toLocaleDateString("pt-BR") : null,
+            eventLocation: event.location,
+            confirmationTitle: formConfig?.confirmationTitle || "Inscrição realizada com sucesso!",
+            confirmationMessage: formConfig?.confirmationMessage || "Nos vemos no evento.",
+            showTicket: true,
+          });
+          await sendEmail({
+            to: recipientEmail,
+            subject: `Inscrição confirmada — ${event.publicName}`,
+            html,
+            attachments: [{ filename: "ingresso.png", content: qrPng, content_id: "ticket-qr" }],
+          });
+        }
       } catch (error) {
         // Falha de e-mail é registrada mas nunca reverte ou reporta erro pro participante —
         // a inscrição já foi gravada com sucesso no banco antes deste bloco rodar.
@@ -174,6 +206,45 @@ export async function submitRegistration(
   }
 
   return result;
+}
+
+// Quando uma vaga é liberada (cancelamento ou exclusão), promove o mais antigo da lista de
+// espera, um de cada vez, e reabre as inscrições se o evento estava marcado como lotado.
+async function promoteFromWaitlist(eventId: string) {
+  const event = await db.event.findUnique({ where: { id: eventId } });
+  if (!event || !event.maxParticipants) return;
+
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const activeCount = await db.participant.count({
+      where: { eventId, deletedAt: null, registrationStatus: { in: ["REGISTERED", "CONFIRMED"] } },
+    });
+    if (activeCount >= event.maxParticipants) break;
+
+    const nextInLine = await db.participant.findFirst({
+      where: { eventId, deletedAt: null, registrationStatus: "WAITLISTED" },
+      orderBy: { createdAt: "asc" },
+    });
+    if (!nextInLine) break;
+
+    await db.participant.update({
+      where: { id: nextInLine.id },
+      data: { registrationStatus: "REGISTERED" },
+    });
+  }
+
+  const stillFull = await db.event.findUnique({ where: { id: eventId } });
+  if (stillFull?.status === "FULL") {
+    const activeCount = await db.participant.count({
+      where: { eventId, deletedAt: null, registrationStatus: { in: ["REGISTERED", "CONFIRMED"] } },
+    });
+    if (activeCount < event.maxParticipants) {
+      await db.event.update({ where: { id: eventId }, data: { status: "REGISTRATION_OPEN" } });
+    }
+  }
+
+  revalidatePath(`/events/${eventId}/participants`);
+  revalidatePath(`/events/${eventId}/overview`);
 }
 
 export async function updateParticipant(eventId: string, participantId: string, input: ParticipantUpdateInput) {
@@ -203,6 +274,10 @@ export async function updateParticipant(eventId: string, participantId: string, 
   });
 
   revalidatePath(`/events/${eventId}/participants`);
+
+  if (parsed.registrationStatus === "CANCELLED") {
+    await promoteFromWaitlist(eventId);
+  }
 }
 
 export async function bulkMarkAttendance(
@@ -226,6 +301,7 @@ export async function deleteParticipant(eventId: string, participantId: string) 
   });
   revalidatePath(`/events/${eventId}/participants`);
   revalidatePath(`/events/${eventId}/overview`);
+  await promoteFromWaitlist(eventId);
 }
 
 // Payload do QR Code: "<eventId>.<participantId>" — simples de propósito, pois a validação real
@@ -253,6 +329,9 @@ export async function checkInParticipant(eventId: string, qrPayload: string): Pr
   }
   if (participant.registrationStatus === "CANCELLED") {
     return { success: false, error: "Esta inscrição foi cancelada." };
+  }
+  if (participant.registrationStatus === "WAITLISTED") {
+    return { success: false, error: "Esta pessoa está na lista de espera, sem vaga confirmada." };
   }
 
   const name = participant.answers.find((a) => a.formField.fieldKey === "name")?.value;

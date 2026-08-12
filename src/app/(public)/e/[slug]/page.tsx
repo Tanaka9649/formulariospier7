@@ -7,7 +7,6 @@ import { PublicForm } from "@/components/public/PublicForm";
 const closedMessages: Record<string, string> = {
   DRAFT: "As inscrições ainda não foram abertas para este evento.",
   REGISTRATION_CLOSED: "As inscrições para este evento foram encerradas.",
-  FULL: "As vagas para este evento se esgotaram.",
   FINISHED: "Este evento já foi finalizado.",
 };
 
@@ -34,7 +33,9 @@ export default async function PublicEventPage({
   const event = await db.event.findUnique({ where: { slug: params.slug, deletedAt: null } });
   if (!event) notFound();
 
-  if (event.status !== "REGISTRATION_OPEN") {
+  const isWaitlistMode = event.status === "FULL";
+
+  if (event.status !== "REGISTRATION_OPEN" && !isWaitlistMode) {
     return (
       <div className="min-h-screen flex items-center justify-center p-6">
         <div className="text-center max-w-md">
@@ -74,6 +75,7 @@ export default async function PublicEventPage({
       formConfig={formConfig}
       branding={branding}
       referralLinkId={referralLinkId}
+      waitlistMode={isWaitlistMode}
     />
   );
 }

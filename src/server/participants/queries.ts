@@ -3,7 +3,7 @@ import type { Prisma } from "@prisma/client";
 
 export type ParticipantFilters = {
   search?: string;
-  registrationStatus?: "REGISTERED" | "CONFIRMED" | "CANCELLED" | "ALL";
+  registrationStatus?: "REGISTERED" | "CONFIRMED" | "CANCELLED" | "WAITLISTED" | "ALL";
   attendanceStatus?: "PENDING" | "PRESENT" | "ABSENT" | "ALL";
   sortDir?: "asc" | "desc";
 };

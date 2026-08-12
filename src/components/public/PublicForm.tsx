@@ -64,6 +64,7 @@ export function PublicForm({
   formConfig,
   branding,
   referralLinkId,
+  waitlistMode = false,
 }: {
   eventId: string;
   publicName: string;
@@ -72,6 +73,7 @@ export function PublicForm({
   formConfig: FormConfigData | null;
   branding?: BrandingData;
   referralLinkId?: string | null;
+  waitlistMode?: boolean;
 }) {
   const [values, setValues] = useState<Record<string, string>>({});
   const [consentValues, setConsentValues] = useState<Record<string, boolean>>({});
@@ -79,6 +81,7 @@ export function PublicForm({
   const [generalError, setGeneralError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [successParticipantId, setSuccessParticipantId] = useState<string | null>(null);
+  const [successIsWaitlist, setSuccessIsWaitlist] = useState(false);
 
   const pageStyle: React.CSSProperties = {
     backgroundColor: branding?.backgroundColor || "#f8fafc",
@@ -109,6 +112,7 @@ export function PublicForm({
     }
 
     setSuccessParticipantId(result.participantId);
+    setSuccessIsWaitlist(result.isWaitlist);
   };
 
   return (
@@ -143,18 +147,24 @@ export function PublicForm({
             <img src={branding.logoUrl} alt="" className="h-12 mx-auto mb-4 object-contain" />
           )}
           <h1 className="text-xl font-semibold mb-2">
-            {formConfig?.confirmationTitle || "Inscrição realizada com sucesso!"}
+            {successIsWaitlist
+              ? "Você entrou na lista de espera!"
+              : formConfig?.confirmationTitle || "Inscrição realizada com sucesso!"}
           </h1>
           <p className="text-sm text-slate-600 mb-6">
-            {formConfig?.confirmationMessage || "Nos vemos no evento."}
+            {successIsWaitlist
+              ? "As vagas estão esgotadas no momento. Avisaremos por e-mail se surgir uma vaga."
+              : formConfig?.confirmationMessage || "Nos vemos no evento."}
           </p>
 
-          <div className="flex flex-col items-center gap-2">
-            <div className="bg-white p-3 border border-slate-200 rounded-lg">
-              <QRCodeSVG value={`${eventId}.${successParticipantId}`} size={160} />
+          {!successIsWaitlist && (
+            <div className="flex flex-col items-center gap-2">
+              <div className="bg-white p-3 border border-slate-200 rounded-lg">
+                <QRCodeSVG value={`${eventId}.${successParticipantId}`} size={160} />
+              </div>
+              <p className="text-xs text-slate-500">Apresente este QR Code na entrada do evento.</p>
             </div>
-            <p className="text-xs text-slate-500">Apresente este QR Code na entrada do evento.</p>
-          </div>
+          )}
         </div>
       ) : (
         <form
@@ -176,6 +186,13 @@ export function PublicForm({
             </p>
           )}
           {formConfig?.summary && <p className="text-sm text-slate-600 mb-6">{formConfig.summary}</p>}
+
+          {waitlistMode && (
+            <div className="bg-amber-50 text-amber-800 text-sm px-3 py-2 rounded-md mb-4">
+              As vagas deste evento estão esgotadas. Você pode entrar na lista de espera — avisaremos
+              se surgir uma vaga.
+            </div>
+          )}
 
           {generalError && (
             <div className="bg-red-50 text-red-700 text-sm px-3 py-2 rounded-md mb-4">{generalError}</div>
@@ -230,7 +247,7 @@ export function PublicForm({
           )}
 
           <Button type="submit" disabled={submitting} className="w-full" style={buttonStyle}>
-            {submitting ? "Enviando..." : "Confirmar inscrição"}
+            {submitting ? "Enviando..." : waitlistMode ? "Entrar na lista de espera" : "Confirmar inscrição"}
           </Button>
         </form>
       )}

@@ -8,7 +8,7 @@ type Field = { id: string; fieldKey: string; publicLabel: string };
 
 type Row = {
   id: string;
-  registrationStatus: "REGISTERED" | "CONFIRMED" | "CANCELLED";
+  registrationStatus: "REGISTERED" | "CONFIRMED" | "CANCELLED" | "WAITLISTED";
   attendanceStatus: "PENDING" | "PRESENT" | "ABSENT";
   answers: Record<string, string>;
 };
@@ -67,6 +67,7 @@ export function EditParticipantModal({
             >
               <option value="REGISTERED">Inscrito</option>
               <option value="CONFIRMED">Confirmado</option>
+              <option value="WAITLISTED">Em espera</option>
               <option value="CANCELLED">Cancelado</option>
             </select>
           </div>

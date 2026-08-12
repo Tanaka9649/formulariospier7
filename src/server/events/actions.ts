@@ -22,7 +22,10 @@ export async function listEventsWithStats() {
   });
 
   return events.map((event) => {
-    const registrations = event.participants.filter((p) => p.registrationStatus !== "CANCELLED");
+    const registrations = event.participants.filter(
+      (p) => p.registrationStatus === "REGISTERED" || p.registrationStatus === "CONFIRMED"
+    );
+    const waitlisted = event.participants.filter((p) => p.registrationStatus === "WAITLISTED").length;
     const confirmed = registrations.filter((p) => p.registrationStatus === "CONFIRMED").length;
     const present = registrations.filter((p) => p.attendanceStatus === "PRESENT").length;
     const absent = registrations.filter((p) => p.attendanceStatus === "ABSENT").length;
@@ -43,6 +46,7 @@ export async function listEventsWithStats() {
       confirmed,
       present,
       absent,
+      waitlisted,
       attendanceRate,
     };
   });

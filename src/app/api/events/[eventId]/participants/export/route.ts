@@ -5,6 +5,7 @@ const registrationLabels: Record<string, string> = {
   REGISTERED: "Inscrito",
   CONFIRMED: "Confirmado",
   CANCELLED: "Cancelado",
+  WAITLISTED: "Em espera",
 };
 const attendanceLabels: Record<string, string> = {
   PENDING: "Pendente",

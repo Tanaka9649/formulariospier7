@@ -4,7 +4,11 @@ import { AttendanceCheckin } from "@/components/admin/AttendanceCheckin";
 
 export default async function AttendancePage({ params }: { params: { eventId: string } }) {
   const participants = await db.participant.findMany({
-    where: { eventId: params.eventId, deletedAt: null, registrationStatus: { not: "CANCELLED" } },
+    where: {
+      eventId: params.eventId,
+      deletedAt: null,
+      registrationStatus: { in: ["REGISTERED", "CONFIRMED"] },
+    },
     include: { answers: { include: { formField: true } } },
     orderBy: { createdAt: "asc" },
   });
