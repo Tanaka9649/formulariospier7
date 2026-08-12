@@ -231,6 +231,7 @@ enum RegistrationStatus {
   REGISTERED
   CONFIRMED
   CANCELLED
+  WAITLISTED
 
   @@map("registration_status")
 }
