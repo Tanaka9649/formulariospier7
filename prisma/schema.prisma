@@ -89,6 +89,58 @@ model TicketType {
   @@map("ticket_types")
 }
 
+// Templates NÃO pertencem a um evento — são reutilizáveis entre eventos futuros.
+model FormTemplate {
+  id                  String  @id @default(uuid())
+  name                String
+  description         String?
+  title               String?
+  subtitle            String?
+  summary             String?
+  additionalInfo      String? @map("additional_info")
+  confirmationTitle   String? @map("confirmation_title")
+  confirmationMessage String? @map("confirmation_message")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  fields   FormTemplateField[]
+  consents FormTemplateConsent[]
+
+  @@map("form_templates")
+}
+
+model FormTemplateField {
+  id           String      @id @default(uuid())
+  templateId   String      @map("template_id")
+  fieldKey     String      @map("field_key")
+  internalName String      @map("internal_name")
+  publicLabel  String      @map("public_label")
+  placeholder  String?
+  fieldType    String      @default("text") @map("field_type")
+  status       FieldStatus @default(OPTIONAL)
+  displayOrder Int         @default(0) @map("display_order")
+
+  template FormTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@index([templateId])
+  @@map("form_template_fields")
+}
+
+model FormTemplateConsent {
+  id           String  @id @default(uuid())
+  templateId   String  @map("template_id")
+  consentKey   String  @map("consent_key")
+  textVersion  String  @map("text_version")
+  isRequired   Boolean @default(false) @map("is_required")
+  displayOrder Int     @default(0) @map("display_order")
+
+  template FormTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@index([templateId])
+  @@map("form_template_consents")
+}
+
 // ---------------------------------------------------------------------------
 // FORMULÁRIO
 // ---------------------------------------------------------------------------
