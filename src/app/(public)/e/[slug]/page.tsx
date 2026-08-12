@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
+import type { Metadata } from "next";
 import { PublicForm } from "@/components/public/PublicForm";
 
 const closedMessages: Record<string, string> = {
@@ -9,6 +10,19 @@ const closedMessages: Record<string, string> = {
   FULL: "As vagas para este evento se esgotaram.",
   FINISHED: "Este evento já foi finalizado.",
 };
+
+export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
+  const event = await db.event.findUnique({
+    where: { slug: params.slug, deletedAt: null },
+    select: { publicName: true, brandName: true, branding: { select: { faviconUrl: true } } },
+  });
+  if (!event) return {};
+
+  return {
+    title: `${event.publicName} — ${event.brandName || "Pier7"}`,
+    icons: event.branding?.faviconUrl ? { icon: event.branding.faviconUrl } : undefined,
+  };
+}
 
 export default async function PublicEventPage({
   params,
@@ -41,13 +55,14 @@ export default async function PublicEventPage({
     : null;
   const referralLinkId = referralLink?.isActive ? referralLink.id : null;
 
-  const [formConfig, fields, consents] = await Promise.all([
+  const [formConfig, fields, consents, branding] = await Promise.all([
     db.formConfig.findUnique({ where: { eventId: event.id } }),
     db.formField.findMany({
       where: { eventId: event.id, status: { in: ["OPTIONAL", "REQUIRED"] } },
       orderBy: { displayOrder: "asc" },
     }),
     db.consent.findMany({ where: { eventId: event.id }, orderBy: { displayOrder: "asc" } }),
+    db.branding.findUnique({ where: { eventId: event.id } }),
   ]);
 
   return (
@@ -57,6 +72,7 @@ export default async function PublicEventPage({
       fields={fields}
       consents={consents}
       formConfig={formConfig}
+      branding={branding}
       referralLinkId={referralLinkId}
     />
   );
