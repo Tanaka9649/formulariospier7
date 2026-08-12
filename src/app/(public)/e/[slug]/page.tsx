@@ -36,6 +36,22 @@ export default async function PublicEventPage({
 
   const isWaitlistMode = event.status === "FULL";
 
+  const refCode = searchParams.ref ?? cookies().get(`pier7_ref_${params.slug}`)?.value;
+  const referralLink = refCode
+    ? await db.referralLink.findUnique({
+        where: { eventId_refCode: { eventId: event.id, refCode } },
+      })
+    : null;
+  const referralLinkId = referralLink?.isActive ? referralLink.id : null;
+
+  // Registra o acesso à página pública (associado ao link de indicação, se houver e estiver
+  // ativo) para alimentar acessos/conversão por link. Roda em qualquer status do evento —
+  // mesmo com inscrições fechadas o clique no link já é um dado válido de alcance. É
+  // "fire and forget": nunca deve bloquear a renderização nem falhar a página do visitante.
+  db.eventVisit.create({ data: { eventId: event.id, referralLinkId } }).catch((err: unknown) => {
+    console.error("[PublicEventPage] Falha ao registrar visita:", err);
+  });
+
   if (event.status !== "REGISTRATION_OPEN" && !isWaitlistMode) {
     return (
       <div className="min-h-screen flex items-center justify-center p-6">
@@ -48,14 +64,6 @@ export default async function PublicEventPage({
       </div>
     );
   }
-
-  const refCode = searchParams.ref ?? cookies().get(`pier7_ref_${params.slug}`)?.value;
-  const referralLink = refCode
-    ? await db.referralLink.findUnique({
-        where: { eventId_refCode: { eventId: event.id, refCode } },
-      })
-    : null;
-  const referralLinkId = referralLink?.isActive ? referralLink.id : null;
 
   const [formConfig, fields, consents, branding, ticketTypes] = await Promise.all([
     db.formConfig.findUnique({ where: { eventId: event.id } }),
