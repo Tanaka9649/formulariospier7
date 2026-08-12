@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { QRCodeSVG } from "qrcode.react";
 import { Button } from "@/components/ui/Button";
 import { submitRegistration } from "@/server/participants/actions";
 import { AudioPlayer } from "@/components/public/AudioPlayer";
@@ -77,7 +78,7 @@ export function PublicForm({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [generalError, setGeneralError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [success, setSuccess] = useState(false);
+  const [successParticipantId, setSuccessParticipantId] = useState<string | null>(null);
 
   const pageStyle: React.CSSProperties = {
     backgroundColor: branding?.backgroundColor || "#f8fafc",
@@ -107,7 +108,7 @@ export function PublicForm({
       return;
     }
 
-    setSuccess(true);
+    setSuccessParticipantId(result.participantId);
   };
 
   return (
@@ -132,7 +133,7 @@ export function PublicForm({
         <AudioPlayer url={branding.audioUrl} volume={branding.audioVolume} loop={branding.audioLoop} />
       )}
 
-      {success ? (
+      {successParticipantId ? (
         <div
           className="max-w-md text-center bg-white border border-slate-200 rounded-lg p-8"
           style={cardStyle}
@@ -144,9 +145,16 @@ export function PublicForm({
           <h1 className="text-xl font-semibold mb-2">
             {formConfig?.confirmationTitle || "Inscrição realizada com sucesso!"}
           </h1>
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-slate-600 mb-6">
             {formConfig?.confirmationMessage || "Nos vemos no evento."}
           </p>
+
+          <div className="flex flex-col items-center gap-2">
+            <div className="bg-white p-3 border border-slate-200 rounded-lg">
+              <QRCodeSVG value={`${eventId}.${successParticipantId}`} size={160} />
+            </div>
+            <p className="text-xs text-slate-500">Apresente este QR Code na entrada do evento.</p>
+          </div>
         </div>
       ) : (
         <form

@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { participantUpdateSchema, attendanceStatusEnum, type ParticipantUpdateInput } from "@/lib/validation/participant";
 
 type SubmitResult =
-  | { success: true }
+  | { success: true; participantId: string }
   | { success: false; error: string; fieldErrors?: Record<string, string> };
 
 // Campo usado como identificador de duplicidade, em ordem de preferência.
@@ -134,7 +134,7 @@ export async function submitRegistration(
       }
     }
 
-    return { success: true as const };
+    return { success: true as const, participantId: participant.id };
   });
 
   if (result.success) {
@@ -196,4 +196,48 @@ export async function deleteParticipant(eventId: string, participantId: string) 
   });
   revalidatePath(`/events/${eventId}/participants`);
   revalidatePath(`/events/${eventId}/overview`);
+}
+
+// Payload do QR Code: "<eventId>.<participantId>" — simples de propósito, pois a validação real
+// de segurança é o próprio scanner só ficar acessível a admins autenticados (rota protegida
+// pelo middleware). Não usamos assinatura HMAC aqui porque ninguém de fora consegue chegar
+// nesta action sem estar logado — adicionar isso agora seria complexidade sem ganho real.
+type CheckInResult =
+  | { success: true; alreadyCheckedIn: boolean; label: string }
+  | { success: false; error: string };
+
+export async function checkInParticipant(eventId: string, qrPayload: string): Promise<CheckInResult> {
+  const [payloadEventId, participantId] = qrPayload.split(".");
+
+  if (payloadEventId !== eventId || !participantId) {
+    return { success: false, error: "QR Code não pertence a este evento." };
+  }
+
+  const participant = await db.participant.findFirst({
+    where: { id: participantId, eventId, deletedAt: null },
+    include: { answers: { include: { formField: true } } },
+  });
+
+  if (!participant) {
+    return { success: false, error: "Participante não encontrado." };
+  }
+  if (participant.registrationStatus === "CANCELLED") {
+    return { success: false, error: "Esta inscrição foi cancelada." };
+  }
+
+  const name = participant.answers.find((a) => a.formField.fieldKey === "name")?.value;
+  const label = name || "Participante";
+
+  const alreadyCheckedIn = participant.attendanceStatus === "PRESENT";
+  if (!alreadyCheckedIn) {
+    await db.participant.update({
+      where: { id: participant.id },
+      data: { attendanceStatus: "PRESENT" },
+    });
+    revalidatePath(`/events/${eventId}/participants`);
+    revalidatePath(`/events/${eventId}/attendance`);
+    revalidatePath(`/events/${eventId}/overview`);
+  }
+
+  return { success: true, alreadyCheckedIn, label };
 }
